@@ -83,17 +83,18 @@ public class MainActivity extends AppCompatActivity implements
         mSigMotionSensor = mSigMotionSensorManager.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION);
         if (mSigMotionSensor == null) {
             Toast.makeText(this, "Significant Motion Sensor not available!", Toast.LENGTH_LONG).show();
+        } else {
+            mSigMotionTriggerEventListener = new TriggerEventListener() {
+                @Override
+                public void onTrigger(TriggerEvent event) {
+                    mMotionCount++;
+                    mMotionLastTime = mMotionCurrentTime;
+                    mMotionCurrentTime = event.timestamp;
+                    mSigMotionSensorManager.requestTriggerSensor(mSigMotionTriggerEventListener, mSigMotionSensor);
+                }
+            };
+            mSigMotionSensorManager.requestTriggerSensor(mSigMotionTriggerEventListener, mSigMotionSensor);
         }
-        mSigMotionTriggerEventListener = new TriggerEventListener() {
-            @Override
-            public void onTrigger(TriggerEvent event) {
-                mMotionCount++;
-                mMotionLastTime = mMotionCurrentTime;
-                mMotionCurrentTime = event.timestamp;
-                mSigMotionSensorManager.requestTriggerSensor(mSigMotionTriggerEventListener, mSigMotionSensor);
-            }
-        };
-        mSigMotionSensorManager.requestTriggerSensor(mSigMotionTriggerEventListener, mSigMotionSensor);
     }
 
     @Override
@@ -145,16 +146,18 @@ public class MainActivity extends AppCompatActivity implements
         int s = mLocations.size();
         if (s > 0) {
             Location l = (Location) mLocations.getLast();
-            mLatitudeText.setText(String.valueOf(l.getLatitude()));
-            mLongitudeText.setText(String.valueOf(l.getLongitude()));
-            mTimeText.setText(DateFormat.getTimeInstance().format(l.getTime()));
-            mCountText.setText(String.valueOf(s));
-            if (l.hasAccuracy()) {
-                mAccValidText.setText("VALID");
-            } else {
-                mAccValidText.setText("invalid");
+            if (l != null) {
+                mLatitudeText.setText(String.valueOf(l.getLatitude()));
+                mLongitudeText.setText(String.valueOf(l.getLongitude()));
+                mTimeText.setText(DateFormat.getTimeInstance().format(l.getTime()));
+                mCountText.setText(String.valueOf(s));
+                if (l.hasAccuracy()) {
+                    mAccValidText.setText("VALID");
+                } else {
+                    mAccValidText.setText("invalid");
+                }
+                mAccuracyText.setText(String.valueOf(l.getAccuracy()));
             }
-            mAccuracyText.setText(String.valueOf(l.getAccuracy()));
             mMotionCountText.setText(String.valueOf(mMotionCount));
             mMotionTimeText.setText(String.valueOf(mMotionCurrentTime-mMotionLastTime));
         }
@@ -338,7 +341,8 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     protected void getLocation() {
-        Log.d(TAG, "getLocation()");try {
+        Log.d(TAG, "getLocation()");
+        try {
             Location l = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
             mLocations.addLast(l);
             updateUI();
