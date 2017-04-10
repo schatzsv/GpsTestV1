@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/latitude_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="10dp"
+        android:layout_marginStart="10dp"
+        android:text="lat"
+        android:textIsSelectable="true"
+        android:textSize="24sp" />
+
+    <TextView
+        android:id="@+id/longitude_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="10dp"
+        android:layout_marginStart="10dp"
+        android:text="lon"
+        android:textIsSelectable="true"
+        android:textSize="24sp" />
+
+    <TextView
+        android:id="@+id/count_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="count"
+        android:textSize="24sp" />
+
+    <TextView
+        android:id="@+id/time_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="time"
+        android:textSize="24sp" />
+
+    <TextView
+        android:id="@+id/feet_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="feet"
+        android:textSize="24sp" />
+
+    <TextView
+        android:id="@+id/cum_miles_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="cum miles"
+        android:textSize="24sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/acc_valid_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight=".3"
+            android:text="valid"
+            android:textSize="24sp" />
+
+        <TextView
+            android:id="@+id/accuracy_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight=".7"
+            android:text="accuracy"
+            android:textSize="24sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/motion_count_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight=".3"
+            android:text="count"
+            android:textSize="24sp" />
+
+        <TextView
+            android:id="@+id/motion_time_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight=".7"
+            android:text="time"
+            android:textSize="24sp" />
+    </LinearLayout>
+
+</LinearLayout>
