@@ -8,6 +8,7 @@ import android.hardware.SensorManager;
 import android.hardware.TriggerEvent;
 import android.hardware.TriggerEventListener;
 import android.location.Location;
+import android.os.Environment;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -25,6 +26,11 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.text.DateFormat;
 import java.util.LinkedList;
 import java.util.Locale;
@@ -50,6 +56,9 @@ public class MainActivity extends AppCompatActivity implements
     protected TextView mMotionTimeText;
 
     protected double mCumMiles = 0;
+
+    private boolean mHaveStoragePermission = false;
+    static final int MY_PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE = 9090;
 
     /*
     ** Android UI related overrides and methods
@@ -77,6 +86,18 @@ public class MainActivity extends AppCompatActivity implements
 
         // Check location services permission
         doCheckLocationPermission();
+
+        // Check external storage permissions
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                    MY_PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE);
+        } else {
+            mHaveStoragePermission = true;
+            setUpLogFile();
+        }
 
         // Motion Detect Sensor
         mSigMotionSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
@@ -131,9 +152,10 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     protected void onDestroy() {
         Log.d(TAG, "onDestroy()");
-        super.onDestroy();
         stopLocationUpdates();
+        closeLocationLog();
         mGoogleApiClient.disconnect();
+        super.onDestroy();
     }
 
     protected void stopLocationUpdates() {
@@ -271,7 +293,7 @@ public class MainActivity extends AppCompatActivity implements
     ** Permission related fields, overrides and methods
     */
 
-    private int MY_PERMISSIONS_ACCESS_FINE_LOCATION = 51;
+    static final int MY_PERMISSIONS_ACCESS_FINE_LOCATION = 51;
     private boolean mHaveLocationPermission = false;
 
     protected void doCheckLocationPermission() {
@@ -307,17 +329,31 @@ public class MainActivity extends AppCompatActivity implements
     public void onRequestPermissionsResult(int requestCode, String[] permissions,
                     int[] grantResults) {
         Log.d(TAG, "onRequestPermissionsResult()");
-        if (requestCode == MY_PERMISSIONS_ACCESS_FINE_LOCATION) {
-            Log.d(TAG, String.format("%s %d", permissions[0], grantResults[0]));
-            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Log.d(TAG, "onRequestPermissionsResult() - permission granted");
-                mHaveLocationPermission = true;
-                getLocation();
-                createLocationRequest();
-                startLocationUpdates();
-            } else {
-                Log.d(TAG, "onRequestPermissionsResult() - permission denied");
-                mHaveLocationPermission = false;
+        Log.d(TAG, String.format("%s %d", permissions[0], grantResults[0]));
+        switch (requestCode) {
+            case MY_PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE: {
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    // permission was granted
+                    mHaveStoragePermission = true;
+                    setUpLogFile();
+                } else {
+                    // permission denied
+                    mHaveStoragePermission = false;
+                }
+            }
+            case MY_PERMISSIONS_ACCESS_FINE_LOCATION: {
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Log.d(TAG, "onRequestPermissionsResult() - permission granted");
+                    mHaveLocationPermission = true;
+                    getLocation();
+                    createLocationRequest();
+                    startLocationUpdates();
+                } else {
+                    Log.d(TAG, "onRequestPermissionsResult() - permission denied");
+                    mHaveLocationPermission = false;
+                }
             }
         }
     }
@@ -337,6 +373,7 @@ public class MainActivity extends AppCompatActivity implements
     public void onLocationChanged(Location location) {
         Log.d(TAG, "onLocationChanged()");
         mLocations.addLast(location);
+        logLocation(location);
         updateUI();
     }
 
@@ -345,6 +382,7 @@ public class MainActivity extends AppCompatActivity implements
         try {
             Location l = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
             mLocations.addLast(l);
+            logLocation(l);
             updateUI();
         }
         catch (SecurityException e) {
@@ -365,7 +403,7 @@ public class MainActivity extends AppCompatActivity implements
 
     protected void createLocationRequest() {
         mLocationRequest = new LocationRequest();
-        mLocationRequest.setInterval(5000);
+        mLocationRequest.setInterval(1000);
         mLocationRequest.setFastestInterval(1000);
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
@@ -386,4 +424,86 @@ public class MainActivity extends AppCompatActivity implements
     private long mMotionLastTime;
     private long mMotionCurrentTime;
 
+    /*
+    ** Log file related methods
+     */
+
+    PrintWriter pw = null;
+
+    void setUpLogFile() {
+        Log.d("GpsTestV1", "setUpLogFile() entry");
+        if (pw != null) return;
+        try {
+            // is there a storage area that is writable?
+            String state = Environment.getExternalStorageState();
+            if (Environment.MEDIA_MOUNTED.equals(state)) {
+                // get document directory
+                File docDir = new File(Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_DOCUMENTS).toString());
+                if (!docDir.exists()) {
+                    Log.d("GpsTestV1",
+                            "setUpLogFile() docDir does not exist, attempt create");
+                    if (!docDir.mkdir()) {
+                        Log.d("GpsTestV1", "setUpLogFile() docDir not created");
+                    }
+                }
+                File trDir = new File (docDir.getPath(), "GpsTestV1");
+                if (!trDir.exists()) {
+                    Log.d("GpsTestV1", "setUpLogFile() trDir does not exist, attempt create");
+                    if (!trDir.mkdir()) {
+                        Log.d("GpsTestV1", "setUpLogFile() trDir not created");
+                    }
+                }
+                File stateFile = new File(trDir.getPath(), "loclog.csv");
+                if (!stateFile.exists()) {
+                    Log.d("GpsTestV1",
+                            "setUpLogFile() stateFile does not exist, attempt create");
+                    if (!stateFile.createNewFile()) {
+                        Log.d("GpsTestV1", "setUpLogFile() stateFile not created");
+                    }
+                } else {
+                    // have a good state file created, save off state
+                    Log.d("GpsTestV1", "setUpLogFile() write state to stateFile");
+                    FileWriter fw;
+                    BufferedWriter bw;
+                    try {
+                        fw = new FileWriter(stateFile, true);
+                        bw = new BufferedWriter(fw);
+                        pw = new PrintWriter(bw);
+                        Log.d("GpsTestV1", "time,lat,lon,alt,acc,hdg,spd");
+                        pw.println("time,lat,lon,alt,acc,hdg,spd");
+                    }
+                    catch (IOException e) {
+                        Log.d("GpsTestV1", "setUpLogFile() IO exception in write state");
+                        if (pw != null) pw.close();
+                    }
+                }
+            }
+        }
+        catch (IOException e) {
+            Log.e("GpsTestV1", "setUpLogFile() createNewFile IO exception");
+        }
+
+    }
+
+    void logLocation(Location l) {
+        Log.d("GpsTestV1", "logLocation()");
+        if (pw != null) {
+            String line = String.format("%d,%f,%f,%f,%f,%f,%f", l.getTime(), l.getLatitude(),
+                    l.getLongitude(), l.getAltitude(), l.getAccuracy(), l.getBearing(),
+                    l.getSpeed());
+            Log.d("GpsTestV1", line);
+            pw.println(line);
+            pw.flush();
+        }
+    }
+
+    void closeLocationLog() {
+        Log.d("GpsTestV1", "closeLogLocation()");
+        if (pw != null) {
+            pw.flush();
+            pw.close();
+            pw = null;
+        }
+    }
 }
